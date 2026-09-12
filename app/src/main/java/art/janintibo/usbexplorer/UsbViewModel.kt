@@ -24,7 +24,7 @@ class UsbViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var occupe by mutableStateOf(false)
         private set
-    var etat by mutableStateOf("")
+    var etat by mutableStateOf("Analyse non lancée")
         private set
     var premierPassage by mutableStateOf(true)
         private set
@@ -91,7 +91,7 @@ class UsbViewModel(application: Application) : AndroidViewModel(application) {
     fun appareilChange() {
         demandeEnCours = false
         disques = emptyList()
-        scanner()
+        etat = "Branchement détecté. Lancez l'analyse quand vous le souhaitez."
     }
 
     private fun stockage(appareil: UsbDevice): Boolean {

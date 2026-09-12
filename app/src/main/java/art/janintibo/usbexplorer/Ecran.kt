@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,24 +34,71 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun EcranDisques(disques: List<DisqueInfo>, etat: String, attente: Boolean) {
-
-    if (disques.isEmpty()) {
-        EcranVide(etat = etat, attente = attente)
-        return
-    }
-
+fun EcranDisques(
+    disques: List<DisqueInfo>,
+    etat: String,
+    attente: Boolean,
+    onAnalyser: () -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp)
     ) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Pupitre)
+                    .border(1.dp, Rainure, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Analyse bas niveau",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Clair
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Lire les secteurs suppose de réclamer le disque de force. " +
+                        "Cela coupe le montage de Paragon, et l'onglet Fichiers ne verra " +
+                        "plus rien tant que vous ne l'aurez pas remonté. C'est pour cette " +
+                        "raison que rien ne se lance tout seul ici.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Doux
+                )
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = onAnalyser,
+                    enabled = !attente,
+                    shape = RoundedCornerShape(11.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Ambre,
+                        contentColor = Nuit
+                    )
+                ) {
+                    Text(if (attente) "Analyse en cours…" else "Analyser les disques")
+                }
+                if (disques.isEmpty() && etat.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = etat,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Doux
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+        }
+
         items(disques.size) { index ->
             BlocDisque(disques[index])
             Spacer(Modifier.height(18.dp))
         }
+
         item {
             Text(
-                text = "Rien n'est jamais écrit sur ces disques : cette version ne sait que " +
+                text = "Rien n'est jamais écrit sur ces disques : cette partie ne sait que " +
                     "lire des secteurs. Si Android propose de formater, refusez : cela " +
                     "effacerait tout le contenu.",
                 style = MaterialTheme.typography.bodySmall,
@@ -235,55 +284,6 @@ private fun LignePartition(partition: PartitionInfo) {
             text = poids(partition.octets),
             style = MaterialTheme.typography.titleSmall,
             color = Clair
-        )
-    }
-}
-
-@Composable
-private fun EcranVide(etat: String, attente: Boolean) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Pupitre),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_drive),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(Cendre),
-                modifier = Modifier.size(28.dp)
-            )
-        }
-        Spacer(Modifier.height(18.dp))
-        Text(
-            text = if (attente) "Analyse en cours" else etat,
-            style = MaterialTheme.typography.titleMedium,
-            color = Clair,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = "Branchez une clé ou un disque en USB OTG. Un disque dur 2,5 pouces " +
-                "tire souvent plus de courant que le port du téléphone ne fournit : " +
-                "s'il ne se signale pas, passez par un hub alimenté.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Doux,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "Si Android propose de formater le disque, refusez : cela effacerait " +
-                "tout son contenu.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Rouille,
-            textAlign = TextAlign.Center
         )
     }
 }
