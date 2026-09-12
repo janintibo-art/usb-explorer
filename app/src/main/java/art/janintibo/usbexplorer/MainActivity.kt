@@ -1,10 +1,13 @@
 package art.janintibo.usbexplorer
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -72,6 +75,20 @@ private fun Application(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri != null) fichiers.definirArbre(uri)
+    }
+
+    val avis = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val accorde = ContextCompat.checkSelfPermission(
+                contexte,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!accorde) avis.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     DisposableEffect(contexte) {
