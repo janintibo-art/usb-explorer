@@ -231,6 +231,7 @@ private fun Application(
 
                 Onglet.DISQUES -> EcranDisques(
                     disques = usb.disques,
+                    inventaire = usb.inventaire,
                     etat = usb.etat,
                     attente = usb.occupe,
                     onAnalyser = { usb.scanner() }

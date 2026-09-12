@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun EcranDisques(
     disques: List<DisqueInfo>,
+    inventaire: List<AppareilBrut>,
     etat: String,
     attente: Boolean,
     onAnalyser: () -> Unit
@@ -94,6 +95,13 @@ fun EcranDisques(
         items(disques.size) { index ->
             BlocDisque(disques[index])
             Spacer(Modifier.height(18.dp))
+        }
+
+        if (disques.isEmpty() && inventaire.isNotEmpty()) {
+            item {
+                Inventaire(inventaire)
+                Spacer(Modifier.height(18.dp))
+            }
         }
 
         item {
@@ -286,4 +294,59 @@ private fun LignePartition(partition: PartitionInfo) {
             color = Clair
         )
     }
+}
+
+/**
+ * Quand rien n'est lisible, savoir ce qu'Android voit sur le port vaut mieux
+ * qu'un message d'échec : c'est ce qui distingue un problème d'alimentation
+ * d'un protocole que nous ne savons pas encore parler.
+ */
+@Composable
+private fun Inventaire(appareils: List<AppareilBrut>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Pupitre)
+            .border(1.dp, Rainure, RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Ce qu'Android voit sur le port",
+            style = MaterialTheme.typography.titleMedium,
+            color = Clair
+        )
+        for (appareil in appareils) {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = appareil.nom,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (appareil.stockage) Menthe else Doux
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "identifiants " + hexa(appareil.vendeur) + ":" + hexa(appareil.produit) +
+                    (if (appareil.autorise) " · autorisé" else " · non autorisé"),
+                style = MaterialTheme.typography.labelSmall,
+                color = Doux,
+                fontFamily = FontFamily.Monospace
+            )
+            for (interfaceUsb in appareil.interfaces) {
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = "· " + nomClasse(interfaceUsb.classe) +
+                        (if (interfaceUsb.stockage) {
+                            " — " + nomProtocole(interfaceUsb.sousClasse, interfaceUsb.protocole)
+                        } else ""),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (interfaceUsb.bulkOnly) Menthe else Cendre
+                )
+            }
+        }
+    }
+}
+
+private fun hexa(valeur: Int): String {
+    val brut = Integer.toHexString(valeur).uppercase()
+    return "0000".substring(0, (4 - brut.length).coerceAtLeast(0)) + brut
 }

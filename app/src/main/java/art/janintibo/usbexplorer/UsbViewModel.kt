@@ -18,9 +18,27 @@ import kotlinx.coroutines.withContext
 
 const val ACTION_PERMISSION_USB = "art.janintibo.usbexplorer.PERMISSION"
 
+data class InterfaceBrute(val classe: Int, val sousClasse: Int, val protocole: Int) {
+    val stockage: Boolean get() = classe == UsbConstants.USB_CLASS_MASS_STORAGE
+    val bulkOnly: Boolean get() = stockage && sousClasse == 6 && protocole == 80
+}
+
+/** Ce qu'Android voit sur le port, stockage ou non. Sert au diagnostic. */
+data class AppareilBrut(
+    val nom: String,
+    val vendeur: Int,
+    val produit: Int,
+    val autorise: Boolean,
+    val interfaces: List<InterfaceBrute>
+) {
+    val stockage: Boolean get() = interfaces.any { it.stockage }
+}
+
 class UsbViewModel(application: Application) : AndroidViewModel(application) {
 
     var disques by mutableStateOf<List<DisqueInfo>>(emptyList())
+        private set
+    var inventaire by mutableStateOf<List<AppareilBrut>>(emptyList())
         private set
     var occupe by mutableStateOf(false)
         private set
@@ -39,12 +57,19 @@ class UsbViewModel(application: Application) : AndroidViewModel(application) {
         val gestionnaire = contexte.getSystemService(Context.USB_SERVICE) as UsbManager
 
         viewModelScope.launch {
+            val appareils = try {
+                gestionnaire.deviceList.values.toList()
+            } catch (e: Exception) {
+                emptyList<UsbDevice>()
+            }
+
+            inventaire = appareils.map { decrire(gestionnaire, it) }
+
             val trouves = ArrayList<DisqueInfo>()
             var attente = false
 
-            val appareils = gestionnaire.deviceList.values.filter { stockage(it) }
-
             for (appareil in appareils) {
+                if (!porteStockage(appareil)) continue
                 if (!gestionnaire.hasPermission(appareil)) {
                     attente = true
                     if (!demandeEnCours) {
@@ -72,7 +97,11 @@ class UsbViewModel(application: Application) : AndroidViewModel(application) {
 
             disques = trouves
             etat = when {
-                appareils.isEmpty() -> "Aucun disque branché"
+                appareils.isEmpty() ->
+                    "Android ne voit aucun périphérique sur le port USB. " +
+                        "Le téléphone n'est pas en mode hôte, ou le disque n'est pas alimenté."
+                inventaire.none { it.stockage } ->
+                    "Un périphérique est branché, mais aucun ne se présente comme du stockage."
                 attente && trouves.isEmpty() -> "En attente de votre autorisation"
                 trouves.isEmpty() -> "Disque détecté, mais illisible en mode bloc"
                 else -> ""
@@ -80,6 +109,30 @@ class UsbViewModel(application: Application) : AndroidViewModel(application) {
             premierPassage = false
             occupe = false
         }
+    }
+
+    private fun decrire(gestionnaire: UsbManager, appareil: UsbDevice): AppareilBrut {
+        val interfaces = ArrayList<InterfaceBrute>()
+        for (i in 0 until appareil.interfaceCount) {
+            val brute = appareil.getInterface(i)
+            interfaces.add(
+                InterfaceBrute(
+                    brute.interfaceClass,
+                    brute.interfaceSubclass,
+                    brute.interfaceProtocol
+                )
+            )
+        }
+        val nom = appareil.productName
+            ?: appareil.manufacturerName
+            ?: appareil.deviceName
+        return AppareilBrut(
+            nom = nom,
+            vendeur = appareil.vendorId,
+            produit = appareil.productId,
+            autorise = try { gestionnaire.hasPermission(appareil) } catch (e: Exception) { false },
+            interfaces = interfaces
+        )
     }
 
     /** Appelé quand la boîte de dialogue d'autorisation s'est refermée. */
@@ -91,10 +144,11 @@ class UsbViewModel(application: Application) : AndroidViewModel(application) {
     fun appareilChange() {
         demandeEnCours = false
         disques = emptyList()
+        inventaire = emptyList()
         etat = "Branchement détecté. Lancez l'analyse quand vous le souhaitez."
     }
 
-    private fun stockage(appareil: UsbDevice): Boolean {
+    private fun porteStockage(appareil: UsbDevice): Boolean {
         for (i in 0 until appareil.interfaceCount) {
             if (appareil.getInterface(i).interfaceClass == UsbConstants.USB_CLASS_MASS_STORAGE) {
                 return true
@@ -117,4 +171,27 @@ class UsbViewModel(application: Application) : AndroidViewModel(application) {
             demandeEnCours = false
         }
     }
+}
+
+fun nomClasse(classe: Int): String = when (classe) {
+    1 -> "Audio"
+    2 -> "Communication"
+    3 -> "Clavier ou souris"
+    6 -> "Image"
+    7 -> "Imprimante"
+    8 -> "Stockage de masse"
+    9 -> "Concentrateur"
+    10 -> "Données CDC"
+    11 -> "Carte à puce"
+    14 -> "Vidéo"
+    224 -> "Sans fil"
+    255 -> "Propriétaire"
+    else -> "Classe " + classe
+}
+
+fun nomProtocole(sousClasse: Int, protocole: Int): String = when {
+    protocole == 80 -> "Bulk-Only Transport"
+    protocole == 98 -> "UAS"
+    protocole == 0 -> "CBI"
+    else -> "sous-classe " + sousClasse + ", protocole " + protocole
 }

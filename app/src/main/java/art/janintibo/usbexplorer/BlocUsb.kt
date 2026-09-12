@@ -48,6 +48,10 @@ class BlocUsb private constructor(
 
         /** Ouvre le premier périphérique de stockage de masse trouvé. */
         fun ouvrir(gestionnaire: UsbManager, appareil: UsbDevice): BlocUsb? {
+            // Le Bulk-Only Transport d'abord, puisque c'est le seul protocole que
+            // cette classe sait parler. A defaut, on tente n'importe quelle interface
+            // de stockage de masse : elle echouera proprement a l'INQUIRY si son
+            // protocole est autre, par exemple UAS.
             var cible: UsbInterface? = null
             for (i in 0 until appareil.interfaceCount) {
                 val candidat = appareil.getInterface(i)
@@ -57,6 +61,15 @@ class BlocUsb private constructor(
                 ) {
                     cible = candidat
                     break
+                }
+            }
+            if (cible == null) {
+                for (i in 0 until appareil.interfaceCount) {
+                    val candidat = appareil.getInterface(i)
+                    if (candidat.interfaceClass == UsbConstants.USB_CLASS_MASS_STORAGE) {
+                        cible = candidat
+                        break
+                    }
                 }
             }
             if (cible == null) return null
